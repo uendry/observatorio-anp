@@ -13,6 +13,7 @@ Princípios:
 import io
 import json
 import os
+import re
 import sys
 import zipfile
 from datetime import datetime, timezone, timedelta
@@ -84,6 +85,29 @@ def coletar_camadas():
 
 
 # --------------------------------------------------------------- CSVs da ANP
+ANO_RE = re.compile(r"(20\d{2})")
+
+
+def ano_do_nome(url):
+    """Extrai o ano do nome do arquivo. Retorna 0 se nao houver."""
+    nome = url.rsplit("/", 1)[-1]
+    achados = ANO_RE.findall(nome)
+    return int(achados[-1]) if achados else 0
+
+
+def mais_recentes(links, n=2):
+    """Ordena por ano decrescente e devolve os n primeiros.
+
+    A ANP publica com atraso: em setembro de 2026 o arquivo mais novo
+    ainda era de 2025. Por isso nao se filtra pelo ano corrente — pega-se
+    o que existe de mais recente.
+    """
+    com_ano = [l for l in links if ano_do_nome(l)]
+    sem_ano = [l for l in links if not ano_do_nome(l)]
+    com_ano.sort(key=ano_do_nome, reverse=True)
+    return com_ano[:n] + sem_ano
+
+
 def salvar_csv(url, sub, prefixo):
     nome = url.rsplit("/", 1)[-1]
     destino = os.path.join(pasta(sub), f"{prefixo}_{REF}__{nome}")
@@ -95,28 +119,51 @@ def salvar_csv(url, sub, prefixo):
     return destino
 
 
+def catalogar(nome, links):
+    """Grava todos os links vistos na pagina. Se a ANP mudar a estrutura,
+    o catalogo mostra os nomes reais e o conserto vira ajuste de filtro."""
+    os.makedirs(RELAT, exist_ok=True)
+    caminho = os.path.join(RELAT, f"catalogo_{REF}.txt")
+    with open(caminho, "a", encoding="utf-8") as f:
+        f.write(f"\n===== {nome} — {len(links)} arquivos\n")
+        for l in links:
+            f.write(f"  {l.rsplit('/',1)[-1]}\n")
+
+
+GRUPOS_PG = [
+    ("royalties municipios", ("royalt", "municipi"), 2),
+    ("royalties estados",    ("royalt", "estado"),   2),
+    ("royalties uniao",      ("royalt", "uniao"),    2),
+    ("participacao especial", ("pe_",),              9),
+    ("preco referencia petroleo", ("preco", "petroleo"), 2),
+    ("preco referencia gas",      ("preco", "gn"),       2),
+]
+
+
 def coletar_participacoes():
     try:
         links = fontes.links_da_pagina(fontes.PAGINAS["participacoes"])
     except Exception as e:
         registrar(f"participacoes: pagina inacessivel: {e}", False)
         return
-    ano = HOJE.year
-    alvos = (fontes.filtrar(links, "royalt", "municipi", str(ano))
-             + fontes.filtrar(links, "royalt", "estado", str(ano))
-             + fontes.filtrar(links, "royalt", "uniao", str(ano))
-             + fontes.filtrar(links, "pe_municipio")
-             + fontes.filtrar(links, "pe_campo"))
-    if not alvos:
-        registrar(f"participacoes: nenhum arquivo de {ano} encontrado", False)
-        return
-    for url in dict.fromkeys(alvos):
-        try:
-            d = salvar_csv(url, "participacoes", "pg")
-            registrar(f"participacoes: {url.rsplit('/',1)[-1]}"
-                      + ("" if d else " (ja existia)"))
-        except Exception as e:
-            registrar(f"participacoes {url}: {e}", False)
+    catalogar("participacoes-governamentais", links)
+
+    baixados = 0
+    for rotulo, termos, quantos in GRUPOS_PG:
+        alvos = mais_recentes(fontes.filtrar(links, *termos), quantos)
+        if not alvos:
+            registrar(f"participacoes: nada encontrado para {rotulo}", False)
+            continue
+        for url in alvos:
+            try:
+                d = salvar_csv(url, "participacoes", "pg")
+                nome = url.rsplit("/", 1)[-1]
+                registrar(f"participacoes [{rotulo}]: {nome}"
+                          + ("" if d else " (ja existia)"))
+                baixados += 1
+            except Exception as e:
+                registrar(f"participacoes {url}: {e}", False)
+    registrar(f"participacoes: {baixados} arquivos processados")
 
 
 def coletar_producao():
@@ -125,12 +172,12 @@ def coletar_producao():
     except Exception as e:
         registrar(f"producao: pagina inacessivel: {e}", False)
         return
-    ano = HOJE.year
-    alvos = fontes.filtrar(links, str(ano)) or fontes.filtrar(links, str(ano - 1))
-    if not alvos:
-        registrar("producao: nenhum arquivo recente encontrado", False)
+    catalogar("producao-por-poco", links)
+    if not links:
+        registrar("producao: pagina sem arquivos — ver catalogo", False)
         return
-    for url in alvos[:6]:
+    alvos = mais_recentes(links, 4)
+    for url in alvos:
         try:
             d = salvar_csv(url, "producao", "prod")
             registrar(f"producao: {url.rsplit('/',1)[-1]}"
