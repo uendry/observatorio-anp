@@ -1,9 +1,37 @@
-[OK  ] Coleta de referencia 202609 iniciada em 2026-09-11T12:58:44.371306-03:00
+[OK  ] Coleta de referencia 202609 iniciada em 2026-09-11T13:04:27.957533-03:00
 [OK  ] GeoServer respondeu com 71 camadas
 [OK  ] pocos: 31,310 feicoes de BD_ANP:POCOS_SIRGAS -> 2.2 MB
 [OK  ] campos: 429 feicoes de BD_ANP:CAMPOS_PRODUCAO_SIRGAS -> 0.2 MB
 [OK  ] blocos: 413 feicoes de BD_ANP:BLOCOS_EXPLORATORIOS_SIRGAS -> 0.1 MB
-[OK  ] participacoes: pe_municipio.csv
-[OK  ] participacoes: pe_campo.csv
-[ERRO] producao: nenhum arquivo recente encontrado
+[OK  ] participacoes [royalties municipios]: royalties-municipio-2025.csv
+[OK  ] participacoes [royalties municipios]: royalties-municipio-2024.csv
+[OK  ] participacoes [royalties estados]: royalties-estado-2025.csv
+[OK  ] participacoes [royalties estados]: royalties-estado-2024.csv
+[OK  ] participacoes [royalties uniao]: royalties-uniao-2025.csv
+[OK  ] participacoes [royalties uniao]: royalties-uniao-2024.csv
+[OK  ] participacoes [participacao especial]: pe_campo.csv (ja existia)
+[OK  ] participacoes [participacao especial]: pe_estado.csv
+[OK  ] participacoes [participacao especial]: pe_municipio.csv (ja existia)
+[OK  ] participacoes [participacao especial]: pe_uniao.csv
+[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2025.csv
+[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2024.csv
+[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2025.csv
+[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2024.csv
+[OK  ] participacoes: 14 arquivos processados
+[OK  ] producao: 2022_05_producao.zip
+[OK  ] producao: 2022_11_producao.zip
+[OK  ] producao: 2022_12_producao.zip
+[OK  ] producao: producao-2022-01.zip
+[OK  ] producao: producao-01.zip
+[OK  ] producao: producao-02.zip
+[OK  ] producao: producao-03.zip
+[OK  ] producao: producao-04.zip
+[OK  ] producao: producao-05.zip
+[OK  ] producao: producao-06.zip
+[OK  ] producao: producao-07.zip
+[OK  ] producao: producao-08.zip
+[OK  ] producao: producao-09.zip
+[OK  ] producao: producao-10.zip
+[OK  ] producao: producao-11.zip
+[OK  ] producao: producao-12.zip
 [OK  ] diff: primeiro snapshot, nada a comparar
