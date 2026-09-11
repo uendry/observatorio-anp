@@ -1,0 +1,4 @@
+# snapshots grandes ficam no repo; ignorar apenas lixo local
+__pycache__/
+*.pyc
+.DS_Store
