@@ -1,0 +1,9 @@
+[OK  ] Coleta de referencia 202609 iniciada em 2026-09-11T12:58:44.371306-03:00
+[OK  ] GeoServer respondeu com 71 camadas
+[OK  ] pocos: 31,310 feicoes de BD_ANP:POCOS_SIRGAS -> 2.2 MB
+[OK  ] campos: 429 feicoes de BD_ANP:CAMPOS_PRODUCAO_SIRGAS -> 0.2 MB
+[OK  ] blocos: 413 feicoes de BD_ANP:BLOCOS_EXPLORATORIOS_SIRGAS -> 0.1 MB
+[OK  ] participacoes: pe_municipio.csv
+[OK  ] participacoes: pe_campo.csv
+[ERRO] producao: nenhum arquivo recente encontrado
+[OK  ] diff: primeiro snapshot, nada a comparar
