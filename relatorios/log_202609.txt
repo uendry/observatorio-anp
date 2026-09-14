@@ -1,37 +1,29 @@
-[OK  ] Coleta de referencia 202609 iniciada em 2026-09-11T13:04:27.957533-03:00
+[OK  ] Coleta de referencia 202609 iniciada em 2026-09-14T16:14:20.625984-03:00
 [OK  ] GeoServer respondeu com 71 camadas
 [OK  ] pocos: 31,310 feicoes de BD_ANP:POCOS_SIRGAS -> 2.2 MB
 [OK  ] campos: 429 feicoes de BD_ANP:CAMPOS_PRODUCAO_SIRGAS -> 0.2 MB
 [OK  ] blocos: 413 feicoes de BD_ANP:BLOCOS_EXPLORATORIOS_SIRGAS -> 0.1 MB
-[OK  ] participacoes [royalties municipios]: royalties-municipio-2025.csv
-[OK  ] participacoes [royalties municipios]: royalties-municipio-2024.csv
-[OK  ] participacoes [royalties estados]: royalties-estado-2025.csv
-[OK  ] participacoes [royalties estados]: royalties-estado-2024.csv
-[OK  ] participacoes [royalties uniao]: royalties-uniao-2025.csv
-[OK  ] participacoes [royalties uniao]: royalties-uniao-2024.csv
+[OK  ] participacoes [royalties municipios]: royalties-municipio-2025.csv (ja existia)
+[OK  ] participacoes [royalties municipios]: royalties-municipio-2024.csv (ja existia)
+[OK  ] participacoes [royalties estados]: royalties-estado-2025.csv (ja existia)
+[OK  ] participacoes [royalties estados]: royalties-estado-2024.csv (ja existia)
+[OK  ] participacoes [royalties uniao]: royalties-uniao-2025.csv (ja existia)
+[OK  ] participacoes [royalties uniao]: royalties-uniao-2024.csv (ja existia)
 [OK  ] participacoes [participacao especial]: pe_campo.csv (ja existia)
-[OK  ] participacoes [participacao especial]: pe_estado.csv
+[OK  ] participacoes [participacao especial]: pe_estado.csv (ja existia)
 [OK  ] participacoes [participacao especial]: pe_municipio.csv (ja existia)
-[OK  ] participacoes [participacao especial]: pe_uniao.csv
-[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2025.csv
-[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2024.csv
-[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2025.csv
-[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2024.csv
+[OK  ] participacoes [participacao especial]: pe_uniao.csv (ja existia)
+[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2025.csv (ja existia)
+[OK  ] participacoes [preco referencia petroleo]: preco-referencia-petroleo-2024.csv (ja existia)
+[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2025.csv (ja existia)
+[OK  ] participacoes [preco referencia gas]: preco-referencia-gn-2024.csv (ja existia)
 [OK  ] participacoes: 14 arquivos processados
-[OK  ] producao: 2022_05_producao.zip
-[OK  ] producao: 2022_11_producao.zip
-[OK  ] producao: 2022_12_producao.zip
-[OK  ] producao: producao-2022-01.zip
-[OK  ] producao: producao-01.zip
-[OK  ] producao: producao-02.zip
-[OK  ] producao: producao-03.zip
-[OK  ] producao: producao-04.zip
-[OK  ] producao: producao-05.zip
-[OK  ] producao: producao-06.zip
-[OK  ] producao: producao-07.zip
-[OK  ] producao: producao-08.zip
-[OK  ] producao: producao-09.zip
-[OK  ] producao: producao-10.zip
-[OK  ] producao: producao-11.zip
-[OK  ] producao: producao-12.zip
+[ERRO] producao 202205: de 2022_05_producao.zip — 50 meses atras do esperado
+[ERRO] producao 202211: de 2022_11_producao.zip — 44 meses atras do esperado
+[ERRO] producao 202212: de 2022_12_producao.zip — 43 meses atras do esperado
+[ERRO] producao 202201: de producao-2022-01.zip — 54 meses atras do esperado
+[ERRO] producao 202202: de producao-2022-02.zip — 53 meses atras do esperado
+[ERRO] producao 202203: de producao-2022-03.zip — 52 meses atras do esperado
+[ERRO] producao: DEFASADO — mais novo e 202212, esperado 202607 (43 meses). A pagina de Dados Abertos nao publica ZIP de 2024 em diante; a janela recente so existe no CDP, com captcha. Usar ingerir_manual() ate que haja rota automatizavel.
+[OK  ] consolidacao: 186,258 linhas, periodos 202201–202312 -> 4.3 MB
 [OK  ] diff: primeiro snapshot, nada a comparar
