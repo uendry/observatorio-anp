@@ -9,6 +9,7 @@ Princípios:
   2. Arquivo nunca é sobrescrito. O nome carrega o mês da coleta.
   3. Falha em uma fonte não derruba as outras.
   4. O diff contra o mês anterior é o produto, não o snapshot isolado.
+  5. Período é fato lido do conteúdo, nunca afirmação do nome do arquivo.
 """
 import io
 import json
@@ -23,6 +24,7 @@ import pandas as pd
 import requests
 
 import fontes
+import producao
 
 BRT = timezone(timedelta(hours=-3))
 HOJE = datetime.now(BRT)
@@ -30,6 +32,10 @@ REF = HOJE.strftime("%Y%m")
 RAIZ = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DADOS = os.path.join(RAIZ, "dados")
 RELAT = os.path.join(RAIZ, "relatorios")
+
+REPO = "uendry/observatorio-anp"
+RAMO = "main"
+RAW = f"https://raw.githubusercontent.com/{REPO}/{RAMO}/"
 
 CAMADAS = {
     "pocos": ["poco"],
@@ -96,16 +102,14 @@ def ano_do_nome(url):
 
 
 def mais_recentes(links, n=2):
-    """Ordena por ano decrescente e devolve os n primeiros.
+    """Delegado para producao.mais_recentes.
 
-    A ANP publica com atraso: em setembro de 2026 o arquivo mais novo
-    ainda era de 2025. Por isso nao se filtra pelo ano corrente — pega-se
-    o que existe de mais recente.
+    A versao anterior devolvia `com_ano[:n] + sem_ano`: todo link sem ano no
+    nome passava sem corte. Foi assim que doze ZIPs de 2023 entraram na coleta
+    202609. O mesmo defeito afeta royalties e participacao especial, onde
+    passava despercebido so porque aqueles arquivos trazem o ano no nome.
     """
-    com_ano = [l for l in links if ano_do_nome(l)]
-    sem_ano = [l for l in links if not ano_do_nome(l)]
-    com_ano.sort(key=ano_do_nome, reverse=True)
-    return com_ano[:n] + sem_ano
+    return producao.mais_recentes(links, n, ano_do_nome)
 
 
 def salvar_csv(url, sub, prefixo):
@@ -167,23 +171,187 @@ def coletar_participacoes():
 
 
 def coletar_producao():
+    """Coleta a producao por poco com verificacao de periodo.
+
+    A pagina de Dados Abertos nao publica ZIP de 2024 em diante: a secao
+    "Producao por Poco 2024 em diante" aponta seus doze links mensais para o
+    diretorio /2023/. De 2024 em diante o dado so existe no CDP, que exige
+    captcha. Esta funcao coleta o que a pagina oferece, nomeia pelo periodo
+    real e denuncia a defasagem no log e no indice.
+    """
     try:
         links = fontes.links_da_pagina(fontes.PAGINAS["producao_poco"])
     except Exception as e:
         registrar(f"producao: pagina inacessivel: {e}", False)
-        return
+        return None
     catalogar("producao-por-poco", links)
     if not links:
         registrar("producao: pagina sem arquivos — ver catalogo", False)
-        return
-    alvos = mais_recentes(links, 4)
-    for url in alvos:
+        return None
+    return producao.coletar(links, fontes.baixar, DADOS, REF, registrar,
+                            candidatos=6, ano_do_nome=ano_do_nome, hoje=HOJE)
+
+
+# ------------------------------------------------------- consolidacao analitica
+COLUNAS_PROD = {
+    "estado": "estado",
+    "bacia": "bacia",
+    "nome poco anp": "poco_anp",
+    "nome poco operador": "poco_operador",
+    "campo": "campo",
+    "operador": "operador",
+    "numero do contrato": "contrato",
+    "periodo": "periodo_bruto",
+    "oleo (bbl/dia)": "oleo_bbl_dia",
+    "condensado (bbl/dia)": "condensado_bbl_dia",
+    "petroleo (bbl/dia)": "petroleo_bbl_dia",
+    "gas natural (mm3/dia) total": "gas_mm3_dia",
+    "volume gas royalties (m3/mes)": "gas_royalties_m3_mes",
+    "agua (bbl/dia)": "agua_bbl_dia",
+    "instalacao destino": "instalacao_destino",
+    "tempo de producao (hs por mes)": "horas_producao_mes",
+    "grau api": "grau_api",
+}
+
+ACENTOS = str.maketrans("áàâãäéêëíïóôõöúüçÁÀÂÃÄÉÊËÍÏÓÔÕÖÚÜÇ",
+                        "aaaaaeeeiioooouucAAAAAEEEIIOOOOUUC")
+
+
+def _norm(c):
+    return " ".join(c.translate(ACENTOS).lower().replace("³", "3").split())
+
+
+def _num_br(s):
+    """Converte o formato numerico brasileiro da ANP: 1.234,56 -> 1234.56."""
+    return pd.to_numeric(
+        s.astype(str).str.strip()
+         .str.replace(".", "", regex=False)
+         .str.replace(",", ".", regex=False)
+         .replace({"": None, "nan": None}),
+        errors="coerce")
+
+
+def consolidar_producao():
+    """Le todos os ZIPs de producao e grava um parquet normalizado.
+
+    Sem isso, quem for analisar precisa reabrir dezesseis ZIPs, adivinhar entre
+    utf-8-sig e latin-1 e converter virgula decimal a cada vez. O parquet
+    resolve isso uma vez por coleta. Nao substitui os ZIPs: eles seguem sendo
+    o dado bruto imutavel.
+    """
+    dir_p = os.path.join(DADOS, "producao")
+    if not os.path.isdir(dir_p):
+        return None
+    zips = sorted(f for f in os.listdir(dir_p) if f.endswith(".zip"))
+    if not zips:
+        return None
+
+    partes = []
+    for nome in zips:
         try:
-            d = salvar_csv(url, "producao", "prod")
-            registrar(f"producao: {url.rsplit('/',1)[-1]}"
-                      + ("" if d else " (ja existia)"))
-        except Exception as e:
-            registrar(f"producao {url}: {e}", False)
+            z = zipfile.ZipFile(os.path.join(dir_p, nome))
+        except zipfile.BadZipFile:
+            registrar(f"consolidacao: {nome} nao e um zip valido", False)
+            continue
+        for interno in z.namelist():
+            if not interno.lower().endswith(".csv"):
+                continue
+            amb = ("MAR" if "mar" in interno.lower() else
+                   "PRESAL" if "presal" in interno.lower() else
+                   "TERRA" if "terra" in interno.lower() else "?")
+            raw = z.read(interno)
+            d = None
+            for enc in ("utf-8-sig", "latin-1"):
+                try:
+                    d = pd.read_csv(io.BytesIO(raw), sep=";", encoding=enc,
+                                    dtype=str, low_memory=False)
+                    if d.shape[1] > 1:
+                        break
+                except Exception:
+                    d = None
+            if d is None or d.shape[1] < 2:
+                continue
+            d.columns = [_norm(c) for c in d.columns]
+            manter = {o: n for o, n in COLUNAS_PROD.items() if o in d.columns}
+            d = d[list(manter)].rename(columns=manter)
+            d["ambiente"] = amb
+            d["_arquivo"] = nome
+            partes.append(d)
+
+    if not partes:
+        registrar("consolidacao: nenhum CSV de producao legivel", False)
+        return None
+
+    p = pd.concat(partes, ignore_index=True)
+    if "periodo_bruto" in p.columns:
+        ext = p["periodo_bruto"].astype(str).str.extract(r"(20\d{2})[/_-](\d{2})")
+        p["periodo"] = ext[0] + ext[1]
+    for c in [c for c in p.columns if c.endswith(("_dia", "_mes", "_api"))]:
+        p[c] = _num_br(p[c])
+
+    destino = os.path.join(pasta("derivados"), f"producao_poco_{REF}.parquet")
+    p.to_parquet(destino, compression="zstd", index=False)
+    mb = os.path.getsize(destino) / 1e6
+    faixa = f"{p.periodo.min()}–{p.periodo.max()}" if "periodo" in p else "?"
+    registrar(f"consolidacao: {len(p):,} linhas, periodos {faixa} -> {mb:.1f} MB")
+    return destino
+
+
+# ------------------------------------------------------------------ indice
+def _listar(sub):
+    d = os.path.join(DADOS, sub)
+    if not os.path.isdir(d):
+        return []
+    return [{"arquivo": f,
+             "caminho": f"dados/{sub}/{f}",
+             "url": RAW + f"dados/{sub}/{f}",
+             "bytes": os.path.getsize(os.path.join(d, f))}
+            for f in sorted(os.listdir(d))]
+
+
+def escrever_indice(periodo_prod):
+    """Grava indice.json na raiz: o que existe, de quando, e onde buscar.
+
+    Serve para que uma analise externa descubra o acervo com uma requisicao
+    unica ao raw.githubusercontent, em vez de clonar o repositorio inteiro.
+    Tambem carrega o alarme de defasagem em campo estruturado, nao so em log.
+    """
+    esperado = producao.periodo_esperado(HOJE)
+    atraso = producao.meses_de_atraso(periodo_prod, HOJE) if periodo_prod else None
+
+    avisos = []
+    if atraso is not None and atraso > 1:
+        avisos.append(
+            f"Producao por poco defasada em {atraso} meses: mais novo {periodo_prod}, "
+            f"esperado {esperado}. A pagina de Dados Abertos da ANP nao publica ZIP "
+            f"de 2024 em diante; a janela recente so existe no CDP, com captcha.")
+
+    indice = {
+        "gerado_em": HOJE.isoformat(),
+        "referencia": REF,
+        "repo": REPO,
+        "raw_base": RAW,
+        "producao": {
+            "periodo_mais_novo": periodo_prod,
+            "periodo_esperado": esperado,
+            "meses_de_atraso": atraso,
+            "arquivos": _listar("producao"),
+        },
+        "camadas": {k: _listar(k) for k in CAMADAS},
+        "participacoes": _listar("participacoes"),
+        "derivados": _listar("derivados"),
+        "relatorios": [
+            {"arquivo": f, "caminho": f"relatorios/{f}",
+             "url": RAW + f"relatorios/{f}"}
+            for f in sorted(os.listdir(RELAT))] if os.path.isdir(RELAT) else [],
+        "avisos": avisos,
+        "erros_da_coleta": [l for l in log if l.startswith("[ERRO")],
+    }
+    destino = os.path.join(RAIZ, "indice.json")
+    with open(destino, "w", encoding="utf-8") as f:
+        json.dump(indice, f, ensure_ascii=False, indent=2)
+    registrar(f"indice: {destino}")
+    return destino
 
 
 # ------------------------------------------------------------------- o diff
@@ -262,12 +430,15 @@ def main():
     registrar(f"Coleta de referencia {REF} iniciada em {HOJE.isoformat()}")
     coletar_camadas()
     coletar_participacoes()
-    coletar_producao()
+    periodo_prod = coletar_producao()
+    consolidar_producao()
     gerar_diff()
 
     os.makedirs(RELAT, exist_ok=True)
     with open(os.path.join(RELAT, f"log_{REF}.txt"), "w", encoding="utf-8") as f:
         f.write("\n".join(log))
+
+    escrever_indice(periodo_prod)
 
     erros = [l for l in log if l.startswith("[ERRO")]
     if erros:
